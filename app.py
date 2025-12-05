@@ -4,11 +4,14 @@ import requests
 import numpy as np
 import pandas as pd
 from math import radians, sin, cos, sqrt, atan2
+from geopy.geocoders import Nominatim
+from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 
 
 st.set_page_config(
     page_title="Main Estimator",
     page_icon="🚕",
+    layout="wide"
 )
 # '''
 # # TaxiFareModel
@@ -46,6 +49,39 @@ st.write('''
 # - passenger count
 # '''
 
+@st.cache_data
+def geocode_address(address, timeout=10):
+    """
+    Converts a human-readable address into (latitude, longitude) coordinates,
+    with a bias towards New York City.
+    """
+    if not address:
+        return None, None
+
+    geolocator = Nominatim(user_agent="nyc_taxi_app_v1", timeout=timeout)
+
+    try:
+        # Bounding box for NYC: (-74.25909, 40.477399, -73.70018, 40.917577)
+        location = geolocator.geocode(
+            address,
+            viewbox=[-74.25, 40.47, -73.70, 40.91],
+            bounded=True
+        )
+
+        if location:
+            return location.latitude, location.longitude
+        else:
+            return None, None
+
+    except GeocoderTimedOut:
+        st.error("Geocoding service timed out; Please try again.")
+        return None, None
+    except GeocoderServiceError as e:
+        st.error(f"Geocoding service error: {e}")
+        return None, None
+    except Exception as e:
+        st.error(f"An unexpected error occurred during geocoding: {e}")
+        return None, None
 
 st.markdown('''
 ## Select the parameters for your ride
@@ -58,15 +94,99 @@ with col1:
 with col2:
     time = st.time_input('Time', datetime.time(12, 00))
 
-# Geo Coordinates
+# Geo Coordinates 1
+
+# --- Coordinate Session State Initialization ---
+# Use the user's existing default values
+default_p_lon = -73.987822
+default_d_lon = -73.966388
+default_p_lat = 40.730006
+default_d_lat = 40.780006
+
+# Initialize session state for coordinates if they don't exist
+if 'p_lon' not in st.session_state:
+    st.session_state['p_lon'] = default_p_lon
+    st.session_state['d_lon'] = default_d_lon
+    st.session_state['p_lat'] = default_p_lat
+    st.session_state['d_lat'] = default_d_lat
+
 st.subheader("Pickup and Dropoff Locations (NYC bounds)")
-col3, col4 = st.columns(2)
-with col3:
-    pickup_longitude = st.number_input('Pickup Longitude', format="%.6f", value= -73.987822)
-    dropoff_longitude = st.number_input('Dropoff Longitude', format="%.6f", value= -73.966388)
-with col4:
-    pickup_latitude = st.number_input('Pickup Latitude', format="%.6f", value= 40.730006)
-    dropoff_latitude = st.number_input('Dropoff Latitude', format="%.6f", value= 40.780006)
+
+
+input_mode = st.radio(
+    "Choose Location Input Method:",
+    ("Direct Coordinate Input", "Address Input (with Geocoding)"),
+    horizontal=True
+)
+# col3, col4 = st.columns(2)
+# with col3:
+#     pickup_longitude = st.number_input('Pickup Longitude', format="%.6f", value= -73.987822)
+#     dropoff_longitude = st.number_input('Dropoff Longitude', format="%.6f", value= -73.966388)
+# with col4:
+#     pickup_latitude = st.number_input('Pickup Latitude', format="%.6f", value= 40.730006)
+#     dropoff_latitude = st.number_input('Dropoff Latitude', format="%.6f", value= 40.780006)
+
+# --- Conditional Input Blocks ---
+
+if input_mode == "Direct Coordinate Input":
+    # User's original coordinate inputs, but now they update st.session_state
+    col3, col4 = st.columns(2)
+    with col3:
+        st.session_state['p_lon'] = st.number_input(
+            'Pickup Longitude',
+            format="%.6f",
+            value=st.session_state['p_lon']
+        )
+        st.session_state['d_lon'] = st.number_input(
+            'Dropoff Longitude',
+            format="%.6f",
+            value=st.session_state['d_lon']
+        )
+    with col4:
+        st.session_state['p_lat'] = st.number_input(
+            'Pickup Latitude',
+            format="%.6f",
+            value=st.session_state['p_lat']
+        )
+        st.session_state['d_lat'] = st.number_input(
+            'Dropoff Latitude',
+            format="%.6f",
+            value=st.session_state['d_lat']
+        )
+
+elif input_mode == "Address Input (with Geocoding)":
+    # New Address inputs
+    start_address = st.text_input(
+        "Starting Address",
+        "5th Avenue and 42nd Street, New York"
+    )
+    end_address = st.text_input(
+        "Ending Address",
+        "JFK Airport, New York"
+    )
+
+    if st.button("Convert Addresses and Update Coordinates"):
+        with st.spinner('Converting addresses to coordinates...'):
+            p_lat_new, p_lon_new = geocode_address(start_address)
+            d_lat_new, d_lon_new = geocode_address(end_address)
+
+            if p_lat_new and p_lon_new and d_lat_new and d_lon_new:
+                # Update session state with new geocoded values
+                st.session_state['p_lat'] = p_lat_new
+                st.session_state['p_lon'] = p_lon_new
+                st.session_state['d_lat'] = d_lat_new
+                st.session_state['d_lon'] = d_lon_new
+                st.success("Addresses converted and coordinates updated for calculation!")
+            else:
+                st.error("Could not find coordinates for one or both addresses. Using current coordinates.")
+
+
+# --- Coordinate Variable Assignment (for downstream compatibility) ---
+# We define the variables the rest of the code expects using the current session state values.
+pickup_longitude = st.session_state['p_lon']
+dropoff_longitude = st.session_state['d_lon']
+pickup_latitude = st.session_state['p_lat']
+dropoff_latitude = st.session_state['d_lat']
 
 # Passenger Count
 passenger_count = st.slider('Passenger Count', 1, 8, 1)
@@ -198,6 +318,8 @@ co2_per_km = 0.15
 co2_estimate_kg = distance_km * co2_per_km
 
 col_dist3.metric("CO₂ Estimate", f"{co2_estimate_kg:.2f} kg", "- Low Emission")
+
+# Added video playing NY related theme music #
 
 YOUTUBE_URL = "https://www.youtube.com/watch?v=vk6014HuxcE"
 st.video(YOUTUBE_URL)
