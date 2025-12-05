@@ -198,3 +198,6 @@ co2_per_km = 0.15
 co2_estimate_kg = distance_km * co2_per_km
 
 col_dist3.metric("CO₂ Estimate", f"{co2_estimate_kg:.2f} kg", "- Low Emission")
+
+
+st.video("https://www.youtube.com/watch?v=vk6014HuxcE")
