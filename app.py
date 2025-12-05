@@ -15,6 +15,11 @@ st.set_page_config(
 # '''
 st.header(''' Welcome to my TaxiFare Model App''')
 
+st.image(
+    "https://publish.purewow.net/wp-content/uploads/sites/2/2018/05/nyc-yellow-taxi-in-times-square-hero.jpg",
+    caption="New York City Taxi in Times Square",
+    use_column_width=True # Ensures the image scales nicely with the window
+)
 
 st.write('''
  Use this page to get a real-time fare estimate by filling out the ride parameters below.
@@ -87,7 +92,7 @@ map_data = pd.DataFrame({
 })
 
 # 2. Display the map
-st.map(map_data, zoom=11)
+st.map(map_data, zoom=9)
 
 
 st.markdown('''
