@@ -11,7 +11,6 @@ from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 st.set_page_config(
     page_title="Main Estimator",
     page_icon="🚕",
-    layout="wide"
 )
 # '''
 # # TaxiFareModel
