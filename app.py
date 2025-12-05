@@ -199,5 +199,5 @@ co2_estimate_kg = distance_km * co2_per_km
 
 col_dist3.metric("CO₂ Estimate", f"{co2_estimate_kg:.2f} kg", "- Low Emission")
 
-YOUTUBE_URL = "https://www.youtube.com/watch?v=vk6014HuxcE?autoplay=1"
+YOUTUBE_URL = "https://www.youtube.com/watch?v=vk6014HuxcE&list=RDvk6014HuxcE&start_radio=1"
 st.video(YOUTUBE_URL)
