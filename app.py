@@ -2,6 +2,8 @@ import streamlit as st
 import datetime
 import requests
 import numpy as np
+import pandas as pd
+from math import radians, sin, cos, sqrt, atan2
 
 
 st.set_page_config(
@@ -73,6 +75,21 @@ passenger_count = st.slider('Passenger Count', 1, 8, 1)
 # 🤔 How could we call our API ? Off course... The `requests` package 💡
 # '''
 
+
+
+# Personal Added Features #
+st.markdown("### Estimated Route")
+
+# 1. Create a DataFrame for st.map
+map_data = pd.DataFrame({
+    'latitude': [pickup_latitude, dropoff_latitude],
+    'longitude': [pickup_longitude, dropoff_longitude]
+})
+
+# 2. Display the map
+st.map(map_data, zoom=11)
+
+
 st.markdown('''
 ## Get Prediction
 ''')
@@ -127,3 +144,52 @@ if st.button('Estimate Fare'):
 
         except requests.exceptions.RequestException as e:
             st.error(f"An error occurred during the API request: {e}")
+
+
+# Another personal addition #
+
+# --- Distance and CO2 Estimation ---
+
+def haversine(lon1, lat1, lon2, lat2):
+    """
+    Calculate the great-circle distance in kilometers and miles between two points
+    on the Earth (specified in decimal degrees).
+    """
+    # Convert decimal degrees to radians
+    lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+
+    # Haversine formula
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1 - a))
+
+    R_km = 6371  # Radius of Earth in kilometers
+    distance_km = R_km * c
+
+    miles_per_km = 0.621371
+    distance_miles = distance_km * miles_per_km
+
+    return distance_km, distance_miles
+
+
+# Calculate distance
+distance_km, distance_miles = haversine(
+    pickup_longitude, pickup_latitude,
+    dropoff_longitude, dropoff_latitude
+)
+
+st.markdown("---")
+st.markdown("### Route Metrics")
+
+# Display distance
+col_dist1, col_dist2, col_dist3 = st.columns(3)
+
+col_dist1.metric("Distance (Miles)", f"{distance_miles:.2f} mi")
+col_dist2.metric("Distance (Kilometers)", f"{distance_km:.2f} km")
+
+# Mock CO2 Estimation (e.g., 0.15 kg CO2 per km for a city taxi)
+co2_per_km = 0.15
+co2_estimate_kg = distance_km * co2_per_km
+
+col_dist3.metric("CO₂ Estimate", f"{co2_estimate_kg:.2f} kg", "- Low Emission")
